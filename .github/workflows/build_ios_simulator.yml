@@ -1,0 +1,35 @@
+name: Build iOS Simulator (for Appetize.io)
+
+on:
+  workflow_dispatch: # מופעל ידנית בלחיצת כפתור
+
+jobs:
+  build:
+    runs-on: macos-latest # שרת Mac של גיטהאב
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build iOS for Simulator
+        run: flutter build ios --simulator --no-codesign
+
+      - name: Zip Simulator App
+        run: |
+          cd build/ios/iphonesimulator
+          zip -r -X ../../../ios-simulator-app.zip Runner.app
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bereshit-solar-ios
+          path: ios-simulator-app.zip
