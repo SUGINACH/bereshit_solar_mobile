@@ -1,4 +1,7 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/customer.dart';
 import '../services/api_service.dart';
 import 'webview_screen.dart';
@@ -12,9 +15,18 @@ class CustomerDetailScreen extends StatelessWidget {
   Future<void> _openStage(BuildContext context, String page, String title) async {
     final baseUrl = await apiService.webAppUrl;
     if (baseUrl == null) return;
-    // מסירים את "exec" ולא נוגעים בפרמטר api - אלה דפי ה-HTML הרגילים (page=...),
-    // בדיוק אותה כתובת שהכפתורים ב-Index.html כבר בונים.
     final url = '$baseUrl?page=$page&clientId=${Uri.encodeComponent(customer.clientId)}';
+
+    // במחשבי ווינדוס: פותח ישירות בדפדפן הרגיל של המחשב (מונע קריסה ומאפשר עבודה נוחה)
+    if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+      return;
+    }
+
+    // בטלפונים (אנדרואיד / אייפון): ממשיך כרגיל בתוך ה-WebView המובנה
     if (!context.mounted) return;
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => WebViewScreen(url: url, title: title),
@@ -48,7 +60,6 @@ class CustomerDetailScreen extends StatelessWidget {
             Text(customer.nextStageLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 12),
 
-            // אותה לוגיקת "כפתור המשך" בדיוק כמו renderStageButtons ב-Index.html
             if (!customer.hasStage1)
               _stageButton(context, '🔍 התחל ניתוח צריכה (שלב 1)', Colors.blue,
                   () => _openStage(context, 'consumption', 'שלב 1 - ניתוח צריכה'))
@@ -78,10 +89,21 @@ class CustomerDetailScreen extends StatelessWidget {
             _stageButton(context, '🖥️ פתח את כרטיס הלקוח המלא (CRM)', Colors.grey.shade300,
                 () async {
               final baseUrl = await apiService.webAppUrl;
-              if (baseUrl == null || !context.mounted) return;
+              if (baseUrl == null) return;
+              final url = '$baseUrl?clientId=${Uri.encodeComponent(customer.clientId)}';
+
+              if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+                final uri = Uri.parse(url);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+                return;
+              }
+
+              if (!context.mounted) return;
               Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => WebViewScreen(
-                  url: '$baseUrl?clientId=${Uri.encodeComponent(customer.clientId)}',
+                  url: url,
                   title: 'כרטיס לקוח מלא',
                 ),
               ));
